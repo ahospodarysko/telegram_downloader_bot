@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TokTube — YouTube &amp; TikTok downloader bot for Telegram</title>
+  <meta name="description" content="Send @toktube_bot a YouTube or TikTok link and get the video back in Telegram — pick 720p, 1080p, or MP3. Free and open source.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📥</text></svg>">
+</head>
+<body>
+
+  <header class="hero">
+    <nav class="nav">
+      <span class="logo">📥 TokTube</span>
+      <a class="nav-link" href="https://github.com/ahospodarysko/telegram_downloader_bot">GitHub</a>
+    </nav>
+
+    <div class="hero-inner">
+      <div class="hero-copy">
+        <h1>YouTube &amp; TikTok videos,<br>delivered in Telegram</h1>
+        <p class="tagline">
+          Send a link, tap a quality, get the video — right in your chat.
+          No apps, no ads, no watermark hunting.
+        </p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="https://t.me/toktube_bot">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M9.04 15.51 8.9 19.4c.4 0 .58-.17.8-.38l1.92-1.84 3.98 2.91c.73.4 1.25.19 1.45-.67l2.62-12.29c.23-1.07-.39-1.49-1.1-1.23L3.7 11.44c-1.05.41-1.04.99-.18 1.25l3.94 1.23 9.14-5.77c.43-.28.82-.13.5.15z"/></svg>
+            Open @toktube_bot
+          </a>
+          <a class="btn btn-ghost" href="#how">How it works</a>
+        </div>
+      </div>
+
+      <div class="hero-demo" aria-hidden="true">
+        <div class="chat">
+          <div class="msg msg-out">https://youtu.be/dQw4…</div>
+          <div class="msg msg-in">
+            “Never Gonna Give You Up”<br>Choose a format:
+            <div class="chips">
+              <span class="chip chip-active">720p</span>
+              <span class="chip">1080p</span>
+              <span class="chip">MP3</span>
+            </div>
+          </div>
+          <div class="msg msg-in msg-video">
+            <span class="play">▶</span>
+            <span>video · 720p · 12&nbsp;MB</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="features">
+      <h2>What it does</h2>
+      <div class="grid">
+        <article class="card">
+          <div class="card-icon">🎬</div>
+          <h3>YouTube in your quality</h3>
+          <p>Pick 720p or 1080p per video. Formats stay tappable after a download, so you can grab the same link again in another quality.</p>
+        </article>
+        <article class="card">
+          <div class="card-icon">🎵</div>
+          <h3>MP3 audio extraction</h3>
+          <p>Any YouTube video as a 192&nbsp;kbps MP3 — music, podcasts, talks — sent back as a playable audio file.</p>
+        </article>
+        <article class="card">
+          <div class="card-icon">⚡</div>
+          <h3>TikTok, zero clicks</h3>
+          <p>TikTok links download automatically in the best available quality. Share links with trackers are cleaned up first.</p>
+        </article>
+        <article class="card">
+          <div class="card-icon">📱</div>
+          <h3>Plays right in Telegram</h3>
+          <p>Videos arrive as streaming-ready H.264 MP4, so they play instantly in Telegram's built-in player — no black screens, no saving to disk.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="how" id="how">
+      <h2>How it works</h2>
+      <ol class="steps">
+        <li><span class="step-num">1</span><div><h3>Send a link</h3><p>Paste any YouTube or TikTok URL into the chat with <a href="https://t.me/toktube_bot">@toktube_bot</a>.</p></div></li>
+        <li><span class="step-num">2</span><div><h3>Pick a format</h3><p>YouTube links show quality buttons — 720p, 1080p, or MP3. TikTok starts immediately.</p></div></li>
+        <li><span class="step-num">3</span><div><h3>Get your file</h3><p>The video or audio lands in the chat, ready to watch, forward, or save.</p></div></li>
+      </ol>
+      <p class="note">Heads-up: Telegram bots can send files up to <strong>50&nbsp;MB</strong>. For longer videos, pick a lower quality or MP3.</p>
+    </section>
+
+    <section class="open-source">
+      <h2>Free &amp; open source</h2>
+      <p>
+        TokTube is a small Python bot built on
+        <a href="https://github.com/yt-dlp/yt-dlp">yt-dlp</a> and
+        <a href="https://python-telegram-bot.org">python-telegram-bot</a>.
+        Read the code, run your own instance, or open an issue.
+      </p>
+      <a class="btn btn-ghost" href="https://github.com/ahospodarysko/telegram_downloader_bot">View on GitHub</a>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>© 2026 Andrii Hospodarysko · <a href="https://github.com/ahospodarysko/telegram_downloader_bot/blob/main/LICENSE">MIT License</a> · <a href="https://t.me/toktube_bot">@toktube_bot</a></p>
+    <p class="fineprint">For personal use. Respect creators' rights and the terms of the platforms you download from.</p>
+  </footer>
+
+</body>
+</html>

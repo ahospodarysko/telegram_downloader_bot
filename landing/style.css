@@ -1,0 +1,290 @@
+/* TokTube landing page — no build step, no external assets. */
+
+:root {
+  --tg-blue: #2aabee;
+  --tg-blue-dark: #229ed9;
+  --bg: #ffffff;
+  --bg-alt: #f4f7fa;
+  --text: #1a2330;
+  --text-soft: #5b6b7e;
+  --card: #ffffff;
+  --border: #e3e9f0;
+  --hero-grad: linear-gradient(160deg, #1c92d2 0%, #2aabee 55%, #7ed0f7 100%);
+  --shadow: 0 8px 30px rgba(20, 60, 100, 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1621;
+    --bg-alt: #17212b;
+    --text: #f1f5f9;
+    --text-soft: #93a4b7;
+    --card: #1c2733;
+    --border: #2b3947;
+    --hero-grad: linear-gradient(160deg, #0f4c75 0%, #1b6fa8 55%, #229ed9 100%);
+    --shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+  }
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+}
+
+a { color: var(--tg-blue-dark); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+h1, h2, h3 { line-height: 1.2; }
+
+/* ---------- Hero ---------- */
+
+.hero {
+  background: var(--hero-grad);
+  color: #fff;
+  padding: 1.25rem 1.5rem 4rem;
+}
+
+.nav {
+  max-width: 1060px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.logo { font-size: 1.25rem; font-weight: 700; }
+
+.nav-link {
+  color: #fff;
+  font-weight: 600;
+  opacity: 0.9;
+}
+.nav-link:hover { opacity: 1; }
+
+.hero-inner {
+  max-width: 1060px;
+  margin: 3.5rem auto 0;
+  display: flex;
+  gap: 3rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.hero-copy { flex: 1 1 420px; }
+
+.hero h1 {
+  font-size: clamp(2rem, 5vw, 3rem);
+  margin-bottom: 1rem;
+}
+
+.tagline {
+  font-size: 1.15rem;
+  opacity: 0.92;
+  max-width: 34rem;
+  margin-bottom: 2rem;
+}
+
+.cta-row { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.btn:hover { text-decoration: none; transform: translateY(-2px); }
+
+.btn-primary {
+  background: #fff;
+  color: var(--tg-blue-dark);
+  box-shadow: var(--shadow);
+}
+
+.btn-ghost {
+  border: 2px solid currentColor;
+  color: inherit;
+}
+
+/* Hero chat mockup */
+
+.hero-demo { flex: 0 1 340px; }
+
+.chat {
+  background: var(--bg-alt);
+  border-radius: 16px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  box-shadow: var(--shadow);
+  color: var(--text);
+}
+
+.msg {
+  max-width: 85%;
+  padding: 0.55rem 0.8rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+}
+
+.msg-out {
+  align-self: flex-end;
+  background: var(--tg-blue);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+  overflow-wrap: anywhere;
+}
+
+.msg-in {
+  align-self: flex-start;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 4px;
+}
+
+.chips { display: flex; gap: 0.4rem; margin-top: 0.5rem; }
+
+.chip {
+  border: 1px solid var(--tg-blue);
+  color: var(--tg-blue-dark);
+  border-radius: 999px;
+  padding: 0.15rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.chip-active { background: var(--tg-blue); color: #fff; }
+
+.msg-video {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--text-soft);
+}
+
+.play {
+  width: 2.1rem;
+  height: 2.1rem;
+  flex: none;
+  border-radius: 50%;
+  background: var(--tg-blue);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 0.8rem;
+}
+
+/* ---------- Sections ---------- */
+
+main section {
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 4rem 1.5rem 0;
+}
+
+main h2 {
+  font-size: 1.75rem;
+  margin-bottom: 1.75rem;
+  text-align: center;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 1.25rem;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.5rem;
+}
+
+.card-icon { font-size: 1.8rem; margin-bottom: 0.6rem; }
+
+.card h3 { font-size: 1.05rem; margin-bottom: 0.5rem; }
+
+.card p { color: var(--text-soft); font-size: 0.92rem; }
+
+/* How it works */
+
+.steps {
+  list-style: none;
+  max-width: 620px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.steps li { display: flex; gap: 1rem; align-items: flex-start; }
+
+.step-num {
+  flex: none;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  background: var(--tg-blue);
+  color: #fff;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+
+.steps h3 { font-size: 1.05rem; }
+
+.steps p { color: var(--text-soft); font-size: 0.95rem; }
+
+.note {
+  max-width: 620px;
+  margin: 2rem auto 0;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.9rem 1.2rem;
+  font-size: 0.92rem;
+  color: var(--text-soft);
+}
+
+/* Open source */
+
+.open-source { text-align: center; padding-bottom: 1rem; }
+
+.open-source p {
+  max-width: 560px;
+  margin: 0 auto 1.5rem;
+  color: var(--text-soft);
+}
+
+.open-source .btn-ghost { color: var(--tg-blue-dark); }
+
+/* ---------- Footer ---------- */
+
+.footer {
+  margin-top: 4rem;
+  padding: 2rem 1.5rem 2.5rem;
+  text-align: center;
+  border-top: 1px solid var(--border);
+  color: var(--text-soft);
+  font-size: 0.9rem;
+}
+
+.fineprint { font-size: 0.78rem; margin-top: 0.4rem; opacity: 0.8; }
+
+/* ---------- Small screens ---------- */
+
+@media (max-width: 640px) {
+  .hero-inner { margin-top: 2.5rem; gap: 2rem; }
+  main section { padding-top: 3rem; }
+}
