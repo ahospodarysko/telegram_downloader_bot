@@ -1,0 +1,14 @@
+# Secrets — never commit the bot token
+.env
+
+# Downloaded media (transient job dirs)
+downloads/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# IDE / OS
+.idea/
+.DS_Store
