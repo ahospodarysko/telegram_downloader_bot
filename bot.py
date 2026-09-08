@@ -46,6 +46,16 @@ COOKIES_FILE = DOWNLOAD_DIR.parent / "youtube_cookies.txt"
 if cookies := os.environ.get("YOUTUBE_COOKIES"):
     COOKIES_FILE.write_text(cookies)
 
+# When YOUTUBE_COOKIES is set (i.e. always on Railway), yt-dlp treats the
+# session as authenticated and swaps its default player clients to
+# ('web_embedded', 'tv_downgraded', 'web') — all of which require a
+# PO Token on a datacenter IP. Without one, every format gets dropped and
+# extraction fails with "Requested format is not available". 'visionos'
+# doesn't require a PO Token, so pin it (plus 'web' as a bonus source) to
+# keep working regardless of auth state. See yt-dlp's
+# YoutubeIE._DEFAULT_AUTHED_CLIENTS / _DEFAULT_CLIENTS.
+YOUTUBE_EXTRACTOR_ARGS = {"youtube": {"player_client": ["visionos", "web"]}}
+
 YOUTUBE_RE = re.compile(
     r"https?://(?:www\.|m\.|music\.)?(?:youtube\.com|youtu\.be)/\S+", re.IGNORECASE
 )
@@ -77,6 +87,7 @@ def _base_opts(job_dir: Path) -> dict:
         "noprogress": True,
         "no_warnings": True,
         "nocheckcertificate": True,
+        "extractor_args": YOUTUBE_EXTRACTOR_ARGS,
     }
     if COOKIES_FILE.exists():
         opts["cookiefile"] = str(COOKIES_FILE)
@@ -85,7 +96,12 @@ def _base_opts(job_dir: Path) -> dict:
 
 def probe_video(url: str) -> dict:
     """Fetch metadata (title, available formats) without downloading."""
-    opts = {"quiet": True, "no_warnings": True, "noplaylist": True}
+    opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "noplaylist": True,
+        "extractor_args": YOUTUBE_EXTRACTOR_ARGS,
+    }
     if COOKIES_FILE.exists():
         opts["cookiefile"] = str(COOKIES_FILE)
     with yt_dlp.YoutubeDL(opts) as ydl:
