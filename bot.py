@@ -47,14 +47,25 @@ if cookies := os.environ.get("YOUTUBE_COOKIES"):
     COOKIES_FILE.write_text(cookies)
 
 # When YOUTUBE_COOKIES is set (i.e. always on Railway), yt-dlp treats the
-# session as authenticated and swaps its default player clients to
-# ('web_embedded', 'tv_downgraded', 'web') — all of which require a
-# PO Token on a datacenter IP. Without one, every format gets dropped and
-# extraction fails with "Requested format is not available". 'visionos'
-# doesn't require a PO Token, so pin it (plus 'web' as a bonus source) to
-# keep working regardless of auth state. See yt-dlp's
-# YoutubeIE._DEFAULT_AUTHED_CLIENTS / _DEFAULT_CLIENTS.
-YOUTUBE_EXTRACTOR_ARGS = {"youtube": {"player_client": ["visionos", "web"]}}
+# session as authenticated and drops any requested client that doesn't
+# support cookies (e.g. 'visionos'), leaving only cookie-capable clients.
+# Most of those (web, web_safari, web_music, web_creator, mweb) require a
+# PO Token, which can't be obtained from a datacenter IP — so every format
+# gets dropped and extraction fails with "Requested format is not
+# available". 'tv' and 'web_embedded' are the exceptions: they support
+# cookies AND don't require a PO Token for GVS. 'visionos' is added too
+# for the unauthenticated case (no YOUTUBE_COOKIES) — it's harmlessly
+# skipped otherwise. See yt-dlp's INNERTUBE_CLIENTS SUPPORTS_COOKIES /
+# GVS_PO_TOKEN_POLICY and YoutubeIE._get_requested_clients.
+YOUTUBE_EXTRACTOR_ARGS = {"youtube": {"player_client": ["tv", "web_embedded", "visionos"]}}
+
+# yt-dlp needs a JS runtime (deno, installed via railpack.json/nixpacks.toml)
+# plus this downloadable solver script to decode YouTube's signature/"n"
+# challenges. Without it, formats requiring JS get silently dropped.
+YOUTUBE_YDL_EXTRA_OPTS = {
+    "extractor_args": YOUTUBE_EXTRACTOR_ARGS,
+    "remote_components": ["ejs:github"],
+}
 
 YOUTUBE_RE = re.compile(
     r"https?://(?:www\.|m\.|music\.)?(?:youtube\.com|youtu\.be)/\S+", re.IGNORECASE
@@ -87,8 +98,7 @@ def _base_opts(job_dir: Path) -> dict:
         "noprogress": True,
         "no_warnings": True,
         "nocheckcertificate": True,
-        "extractor_args": YOUTUBE_EXTRACTOR_ARGS,
-    }
+    } | YOUTUBE_YDL_EXTRA_OPTS
     if COOKIES_FILE.exists():
         opts["cookiefile"] = str(COOKIES_FILE)
     return opts
@@ -98,10 +108,9 @@ def probe_video(url: str) -> dict:
     """Fetch metadata (title, available formats) without downloading."""
     opts = {
         "quiet": True,
-        "no_warnings": False,  # TEMP: surface yt-dlp warnings to diagnose Railway format failures
+        "no_warnings": True,
         "noplaylist": True,
-        "extractor_args": YOUTUBE_EXTRACTOR_ARGS,
-    }
+    } | YOUTUBE_YDL_EXTRA_OPTS
     if COOKIES_FILE.exists():
         opts["cookiefile"] = str(COOKIES_FILE)
     with yt_dlp.YoutubeDL(opts) as ydl:
