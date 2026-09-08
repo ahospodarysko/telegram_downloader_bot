@@ -98,7 +98,7 @@ def probe_video(url: str) -> dict:
     """Fetch metadata (title, available formats) without downloading."""
     opts = {
         "quiet": True,
-        "no_warnings": True,
+        "no_warnings": False,  # TEMP: surface yt-dlp warnings to diagnose Railway format failures
         "noplaylist": True,
         "extractor_args": YOUTUBE_EXTRACTOR_ARGS,
     }
