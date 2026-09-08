@@ -38,6 +38,14 @@ logger = logging.getLogger(__name__)
 TELEGRAM_FILE_SIZE_LIMIT = 50 * 1024 * 1024  # 50 MB bot upload limit
 DOWNLOAD_DIR = Path(__file__).resolve().parent / "downloads"
 
+# YouTube blocks datacenter IPs (e.g. Railway) with a "Sign in to confirm
+# you're not a bot" wall unless requests carry cookies from a real browser
+# session. Paste the exported cookies.txt contents into the YOUTUBE_COOKIES
+# env var and we write them to disk once at startup for yt-dlp to use.
+COOKIES_FILE = DOWNLOAD_DIR.parent / "youtube_cookies.txt"
+if cookies := os.environ.get("YOUTUBE_COOKIES"):
+    COOKIES_FILE.write_text(cookies)
+
 YOUTUBE_RE = re.compile(
     r"https?://(?:www\.|m\.|music\.)?(?:youtube\.com|youtu\.be)/\S+", re.IGNORECASE
 )
@@ -62,7 +70,7 @@ def _strip_query(url: str) -> str:
 
 
 def _base_opts(job_dir: Path) -> dict:
-    return {
+    opts = {
         "outtmpl": str(job_dir / "%(title).80s.%(ext)s"),
         "noplaylist": True,
         "quiet": True,
@@ -70,11 +78,17 @@ def _base_opts(job_dir: Path) -> dict:
         "no_warnings": True,
         "nocheckcertificate": True,
     }
+    if COOKIES_FILE.exists():
+        opts["cookiefile"] = str(COOKIES_FILE)
+    return opts
 
 
 def probe_video(url: str) -> dict:
     """Fetch metadata (title, available formats) without downloading."""
-    with yt_dlp.YoutubeDL({"quiet": True, "no_warnings": True, "noplaylist": True}) as ydl:
+    opts = {"quiet": True, "no_warnings": True, "noplaylist": True}
+    if COOKIES_FILE.exists():
+        opts["cookiefile"] = str(COOKIES_FILE)
+    with yt_dlp.YoutubeDL(opts) as ydl:
         return ydl.extract_info(url, download=False)
 
 
