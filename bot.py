@@ -83,7 +83,14 @@ HELP_TEXT = (
     "• TikTok / Instagram: downloaded automatically in the best quality\n\n"
     "Note: Telegram bots can only send files up to 50 MB.\n"
     "Note: some Instagram videos may download without audio — this is "
-    "an Instagram-side limitation, not something we can fix."
+    "an Instagram-side limitation, not something we can fix.\n\n"
+    "—\n\n"
+    "Надішли мені посилання на YouTube, TikTok або Instagram, і я завантажу відео.\n\n"
+    "• YouTube: обери 720p, 1080p або MP3 (тільки аудіо)\n"
+    "• TikTok / Instagram: завантажується автоматично в найкращій якості\n\n"
+    "Примітка: боти Telegram можуть надсилати файли розміром до 50 МБ.\n"
+    "Примітка: деякі відео з Instagram можуть завантажуватись без звуку — "
+    "це обмеження з боку Instagram, яке ми не можемо виправити."
 )
 
 
