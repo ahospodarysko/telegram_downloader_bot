@@ -9,10 +9,12 @@ Requires ffmpeg on PATH (brew install ffmpeg).
 """
 
 import asyncio
+import json
 import logging
 import os
 import re
 import shutil
+import subprocess
 import uuid
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse
@@ -124,6 +126,33 @@ def available_heights(info: dict) -> set[int]:
     return {f["height"] for f in info.get("formats", []) if f.get("height")}
 
 
+def probe_dimensions(path: Path) -> tuple[int | None, int | None, int | None]:
+    """Read width/height/duration straight from the file via ffprobe.
+
+    Some extractors (e.g. Instagram) don't report these in yt-dlp's info
+    dict, and Telegram clients can get stuck "loading" a video sent without
+    them since they have to fully probe the file themselves first.
+    """
+    try:
+        result = subprocess.run(
+            [
+                "ffprobe", "-v", "error",
+                "-select_streams", "v:0",
+                "-show_entries", "stream=width,height:format=duration",
+                "-of", "json",
+                str(path),
+            ],
+            capture_output=True, text=True, timeout=30, check=True,
+        )
+        data = json.loads(result.stdout)
+        stream = (data.get("streams") or [{}])[0]
+        duration = (data.get("format") or {}).get("duration")
+        return stream.get("width"), stream.get("height"), int(float(duration)) if duration else None
+    except Exception:
+        logger.warning("ffprobe failed to read dimensions for %s", path, exc_info=True)
+        return None, None, None
+
+
 def _finished_file(info: dict, job_dir: Path) -> Path:
     """Resolve the final output file after any merging/post-processing."""
     downloads = info.get("requested_downloads") or []
@@ -213,15 +242,24 @@ async def deliver(message: Message, url: str, kind: str, max_height: int | None 
                 await message.reply_audio(audio=fh, title=path.stem)
             else:
                 # Width/height/duration let Telegram build the player and
-                # preview correctly instead of showing a black frame.
+                # preview correctly instead of getting stuck "loading" while
+                # it probes the file itself. yt-dlp doesn't always report
+                # these (e.g. Instagram), so fall back to reading the file.
+                width, height, duration = info.get("width"), info.get("height"), info.get("duration")
+                if not (width and height and duration):
+                    probed_width, probed_height, probed_duration = await asyncio.to_thread(
+                        probe_dimensions, path
+                    )
+                    width, height, duration = width or probed_width, height or probed_height, duration or probed_duration
                 await message.reply_video(
                     video=fh,
                     supports_streaming=True,
-                    width=info.get("width"),
-                    height=info.get("height"),
-                    duration=int(info["duration"]) if info.get("duration") else None,
+                    width=width,
+                    height=height,
+                    duration=int(duration) if duration else None,
                 )
         await status.delete()
+        logger.info("Delivered %s (%s) for %s: %.1f MB", kind, url, message.from_user.id if message.from_user else "?", size / 1024 / 1024)
     except yt_dlp.utils.DownloadError as exc:
         logger.error("Download failed for %s: %s", url, exc)
         await status.edit_text(
