@@ -1,10 +1,10 @@
-"""Telegram bot that downloads YouTube / TikTok videos and extracts MP3 audio from YouTube.
+"""Telegram bot that downloads YouTube / TikTok / Instagram videos and extracts MP3 audio from YouTube.
 
 Usage:
     export TELEGRAM_BOT_TOKEN="123456:ABC..."
     python3 bot.py
 
-Just send the bot a YouTube or TikTok link — no commands needed.
+Just send the bot a YouTube, TikTok, or Instagram link — no commands needed.
 Requires ffmpeg on PATH (brew install ffmpeg).
 """
 
@@ -71,11 +71,14 @@ YOUTUBE_RE = re.compile(
     r"https?://(?:www\.|m\.|music\.)?(?:youtube\.com|youtu\.be)/\S+", re.IGNORECASE
 )
 TIKTOK_RE = re.compile(r"https?://(?:[\w-]+\.)?tiktok\.com/\S+", re.IGNORECASE)
+INSTAGRAM_RE = re.compile(
+    r"https?://(?:www\.)?instagram\.com/(?:reel|reels|p|tv)/\S+", re.IGNORECASE
+)
 
 HELP_TEXT = (
-    "Send me a YouTube or TikTok link and I'll download it for you.\n\n"
+    "Send me a YouTube, TikTok, or Instagram link and I'll download it for you.\n\n"
     "• YouTube: choose 720p, 1080p, or MP3 (audio only)\n"
-    "• TikTok: downloaded automatically in the best quality\n\n"
+    "• TikTok / Instagram: downloaded automatically in the best quality\n\n"
     "Note: Telegram bots can only send files up to 50 MB."
 )
 
@@ -246,12 +249,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await deliver(update.message, _strip_query(match.group(0)), kind="video")
         return
 
+    if match := INSTAGRAM_RE.search(text):
+        await deliver(update.message, _strip_query(match.group(0)), kind="video")
+        return
+
     if match := YOUTUBE_RE.search(text):
         await ask_youtube_quality(update.message, context, match.group(0))
         return
 
     await update.message.reply_text(
-        "That doesn't look like a YouTube or TikTok link.\n\n" + HELP_TEXT
+        "That doesn't look like a YouTube, TikTok, or Instagram link.\n\n" + HELP_TEXT
     )
 
 
