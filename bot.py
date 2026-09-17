@@ -38,6 +38,11 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 TELEGRAM_FILE_SIZE_LIMIT = 50 * 1024 * 1024  # 50 MB bot upload limit
+# Leave headroom below the real limit: bitrate-targeted encodes aren't exact,
+# and container/moov overhead eats a little more on top.
+COMPRESSED_TARGET_SIZE = int(TELEGRAM_FILE_SIZE_LIMIT * 0.92)
+AUDIO_BITRATE_KBPS = 128
+MIN_VIDEO_BITRATE_KBPS = 150
 DOWNLOAD_DIR = Path(__file__).resolve().parent / "downloads"
 
 # YouTube blocks datacenter IPs (e.g. Railway) with a "Sign in to confirm
@@ -81,14 +86,16 @@ HELP_TEXT = (
     "Send me a YouTube, TikTok, or Instagram link and I'll download it for you.\n\n"
     "• YouTube: choose 720p, 1080p, or MP3 (audio only)\n"
     "• TikTok / Instagram: downloaded automatically in the best quality\n\n"
-    "Note: Telegram bots can only send files up to 50 MB.\n"
+    "Note: Telegram bots can only send files up to 50 MB — larger videos are "
+    "automatically compressed to fit.\n"
     "Note: some Instagram videos may download without audio — this is "
     "an Instagram-side limitation, not something we can fix.\n\n"
     "—\n\n"
     "Надішли мені посилання на YouTube, TikTok або Instagram, і я завантажу відео.\n\n"
     "• YouTube: обери 720p, 1080p або MP3 (тільки аудіо)\n"
     "• TikTok / Instagram: завантажується автоматично в найкращій якості\n\n"
-    "Примітка: боти Telegram можуть надсилати файли розміром до 50 МБ.\n"
+    "Примітка: боти Telegram можуть надсилати файли розміром до 50 МБ — "
+    "більші відео автоматично стискаються, щоб вкластися в ліміт.\n"
     "Примітка: деякі відео з Instagram можуть завантажуватись без звуку — "
     "це обмеження з боку Instagram, яке ми не можемо виправити."
 )
@@ -216,6 +223,34 @@ def download_video(url: str, job_dir: Path, max_height: int | None = None) -> tu
     return _finished_file(info, job_dir), info
 
 
+def compress_video(path: Path, duration: float, target_size: int = COMPRESSED_TARGET_SIZE) -> Path:
+    """Re-encode at a bitrate sized to hit target_size for this duration.
+
+    Used when a download comes back over Telegram's limit — cheaper than
+    re-downloading at a lower resolution, and works for TikTok too (which
+    has no quality ladder to step down through).
+    """
+    target_total_kbps = target_size * 8 / 1000 / duration
+    video_kbps = max(int(target_total_kbps - AUDIO_BITRATE_KBPS), MIN_VIDEO_BITRATE_KBPS)
+
+    out_path = path.with_name(f"{path.stem}_compressed.mp4")
+    subprocess.run(
+        [
+            "ffmpeg", "-y", "-i", str(path),
+            "-c:v", "libx264",
+            "-b:v", f"{video_kbps}k",
+            "-maxrate", f"{video_kbps}k",
+            "-bufsize", f"{video_kbps * 2}k",
+            "-c:a", "aac", "-b:a", f"{AUDIO_BITRATE_KBPS}k",
+            "-movflags", "+faststart",
+            str(out_path),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    return out_path
+
+
 def download_mp3(url: str, job_dir: Path) -> Path:
     opts = _base_opts(job_dir) | {
         "format": "bestaudio/best",
@@ -252,11 +287,38 @@ async def deliver(message: Message, url: str, kind: str, max_height: int | None 
 
         size = path.stat().st_size
         if size > TELEGRAM_FILE_SIZE_LIMIT:
+            duration = info.get("duration")
+            if not duration and kind != "mp3":
+                # yt-dlp doesn't report duration for some extractors (e.g.
+                # Instagram) — read it from the file itself so oversized
+                # videos still get compressed instead of just rejected.
+                _, _, duration = await asyncio.to_thread(probe_dimensions, path)
+            if kind == "mp3" or not duration:
+                await status.edit_text(
+                    f"The file is {size / 1024 / 1024:.0f} MB, above Telegram's 50 MB "
+                    "bot limit. Try a lower quality or a shorter video."
+                )
+                return
+
             await status.edit_text(
-                f"The file is {size / 1024 / 1024:.0f} MB, above Telegram's 50 MB bot "
-                "limit. Try a lower quality or a shorter video."
+                f"Video is {size / 1024 / 1024:.0f} MB — over Telegram's 50 MB bot "
+                "limit. Compressing it now, please wait…"
             )
-            return
+            try:
+                compressed = await asyncio.to_thread(compress_video, path, float(duration))
+            except subprocess.CalledProcessError:
+                logger.exception("Compression failed for %s", url)
+                compressed = None
+
+            compressed_size = compressed.stat().st_size if compressed else None
+            if compressed_size is None or compressed_size > TELEGRAM_FILE_SIZE_LIMIT:
+                await status.edit_text(
+                    f"The file is {size / 1024 / 1024:.0f} MB, above Telegram's 50 MB "
+                    "bot limit even after compression. Try a lower quality or a "
+                    "shorter video."
+                )
+                return
+            path, size = compressed, compressed_size
 
         await status.edit_text("Uploading to Telegram…")
         with open(path, "rb") as fh:
