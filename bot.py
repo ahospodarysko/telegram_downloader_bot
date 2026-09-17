@@ -81,7 +81,9 @@ HELP_TEXT = (
     "Send me a YouTube, TikTok, or Instagram link and I'll download it for you.\n\n"
     "• YouTube: choose 720p, 1080p, or MP3 (audio only)\n"
     "• TikTok / Instagram: downloaded automatically in the best quality\n\n"
-    "Note: Telegram bots can only send files up to 50 MB."
+    "Note: Telegram bots can only send files up to 50 MB.\n"
+    "Note: some Instagram videos may download without audio — this is "
+    "an Instagram-side limitation, not something we can fix."
 )
 
 
