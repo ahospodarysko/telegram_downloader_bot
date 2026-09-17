@@ -182,7 +182,20 @@ def download_video(url: str, job_dir: Path, max_height: int | None = None) -> tu
             f"/best[height<={max_height}]/best"
         )
     else:
-        fmt = "best[ext=mp4][vcodec^=avc1]/best[ext=mp4]/best"
+        # Instagram serves VP9-only DASH renditions from datacenter IPs (a
+        # plain "best" then silently picks a VP9 stream Telegram's in-app
+        # player can't decode — looks "stuck" rather than erroring), and for
+        # some videos drops the separate audio track entirely. Exclude
+        # VP9/AV1 unconditionally and only fall back to them if literally
+        # nothing else exists, merging in audio where it's available and
+        # accepting a silent (but at least playable) video otherwise.
+        fmt = (
+            "best[vcodec!^=?vp][vcodec!^=?av01][acodec!=?none]"
+            "/bestvideo[vcodec!^=?vp][vcodec!^=?av01]+bestaudio"
+            "/bestvideo[vcodec!^=?vp][vcodec!^=?av01]"
+            "/bestvideo+bestaudio"
+            "/best"
+        )
     opts = _base_opts(job_dir) | {
         "format": fmt,
         "merge_output_format": "mp4",
