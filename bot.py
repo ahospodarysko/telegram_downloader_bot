@@ -1,14 +1,15 @@
-"""Telegram bot that downloads YouTube / TikTok videos and extracts MP3 audio from YouTube.
+"""Telegram bot that downloads YouTube / TikTok / Instagram videos and extracts MP3 audio from YouTube.
 
 Usage:
     export TELEGRAM_BOT_TOKEN="123456:ABC..."
     python3 bot.py
 
-Just send the bot a YouTube or TikTok link — no commands needed.
+Just send the bot a YouTube, TikTok, or Instagram link — no commands needed.
 Requires ffmpeg on PATH (brew install ffmpeg).
 """
 
 import asyncio
+import json
 import logging
 import os
 import re
@@ -77,13 +78,26 @@ YOUTUBE_RE = re.compile(
     r"https?://(?:www\.|m\.|music\.)?(?:youtube\.com|youtu\.be)/\S+", re.IGNORECASE
 )
 TIKTOK_RE = re.compile(r"https?://(?:[\w-]+\.)?tiktok\.com/\S+", re.IGNORECASE)
+INSTAGRAM_RE = re.compile(
+    r"https?://(?:www\.)?instagram\.com/(?:reel|reels|p|tv)/\S+", re.IGNORECASE
+)
 
 HELP_TEXT = (
-    "Send me a YouTube or TikTok link and I'll download it for you.\n\n"
+    "Send me a YouTube, TikTok, or Instagram link and I'll download it for you.\n\n"
     "• YouTube: choose 720p, 1080p, or MP3 (audio only)\n"
-    "• TikTok: downloaded automatically in the best quality\n\n"
+    "• TikTok / Instagram: downloaded automatically in the best quality\n\n"
     "Note: Telegram bots can only send files up to 50 MB — larger videos are "
-    "automatically compressed to fit."
+    "automatically compressed to fit.\n"
+    "Note: some Instagram videos may download without audio — this is "
+    "an Instagram-side limitation, not something we can fix.\n\n"
+    "—\n\n"
+    "Надішли мені посилання на YouTube, TikTok або Instagram, і я завантажу відео.\n\n"
+    "• YouTube: обери 720p, 1080p або MP3 (тільки аудіо)\n"
+    "• TikTok / Instagram: завантажується автоматично в найкращій якості\n\n"
+    "Примітка: боти Telegram можуть надсилати файли розміром до 50 МБ — "
+    "більші відео автоматично стискаються, щоб вкластися в ліміт.\n"
+    "Примітка: деякі відео з Instagram можуть завантажуватись без звуку — "
+    "це обмеження з боку Instagram, яке ми не можемо виправити."
 )
 
 
@@ -128,6 +142,33 @@ def available_heights(info: dict) -> set[int]:
     return {f["height"] for f in info.get("formats", []) if f.get("height")}
 
 
+def probe_dimensions(path: Path) -> tuple[int | None, int | None, int | None]:
+    """Read width/height/duration straight from the file via ffprobe.
+
+    Some extractors (e.g. Instagram) don't report these in yt-dlp's info
+    dict, and Telegram clients can get stuck "loading" a video sent without
+    them since they have to fully probe the file themselves first.
+    """
+    try:
+        result = subprocess.run(
+            [
+                "ffprobe", "-v", "error",
+                "-select_streams", "v:0",
+                "-show_entries", "stream=width,height:format=duration",
+                "-of", "json",
+                str(path),
+            ],
+            capture_output=True, text=True, timeout=30, check=True,
+        )
+        data = json.loads(result.stdout)
+        stream = (data.get("streams") or [{}])[0]
+        duration = (data.get("format") or {}).get("duration")
+        return stream.get("width"), stream.get("height"), int(float(duration)) if duration else None
+    except Exception:
+        logger.warning("ffprobe failed to read dimensions for %s", path, exc_info=True)
+        return None, None, None
+
+
 def _finished_file(info: dict, job_dir: Path) -> Path:
     """Resolve the final output file after any merging/post-processing."""
     downloads = info.get("requested_downloads") or []
@@ -157,7 +198,20 @@ def download_video(url: str, job_dir: Path, max_height: int | None = None) -> tu
             f"/best[height<={max_height}]/best"
         )
     else:
-        fmt = "best[ext=mp4][vcodec^=avc1]/best[ext=mp4]/best"
+        # Instagram serves VP9-only DASH renditions from datacenter IPs (a
+        # plain "best" then silently picks a VP9 stream Telegram's in-app
+        # player can't decode — looks "stuck" rather than erroring), and for
+        # some videos drops the separate audio track entirely. Exclude
+        # VP9/AV1 unconditionally and only fall back to them if literally
+        # nothing else exists, merging in audio where it's available and
+        # accepting a silent (but at least playable) video otherwise.
+        fmt = (
+            "best[vcodec!^=?vp][vcodec!^=?av01][acodec!=?none]"
+            "/bestvideo[vcodec!^=?vp][vcodec!^=?av01]+bestaudio"
+            "/bestvideo[vcodec!^=?vp][vcodec!^=?av01]"
+            "/bestvideo+bestaudio"
+            "/best"
+        )
     opts = _base_opts(job_dir) | {
         "format": fmt,
         "merge_output_format": "mp4",
@@ -234,6 +288,11 @@ async def deliver(message: Message, url: str, kind: str, max_height: int | None 
         size = path.stat().st_size
         if size > TELEGRAM_FILE_SIZE_LIMIT:
             duration = info.get("duration")
+            if not duration and kind != "mp3":
+                # yt-dlp doesn't report duration for some extractors (e.g.
+                # Instagram) — read it from the file itself so oversized
+                # videos still get compressed instead of just rejected.
+                _, _, duration = await asyncio.to_thread(probe_dimensions, path)
             if kind == "mp3" or not duration:
                 await status.edit_text(
                     f"The file is {size / 1024 / 1024:.0f} MB, above Telegram's 50 MB "
@@ -267,15 +326,24 @@ async def deliver(message: Message, url: str, kind: str, max_height: int | None 
                 await message.reply_audio(audio=fh, title=path.stem)
             else:
                 # Width/height/duration let Telegram build the player and
-                # preview correctly instead of showing a black frame.
+                # preview correctly instead of getting stuck "loading" while
+                # it probes the file itself. yt-dlp doesn't always report
+                # these (e.g. Instagram), so fall back to reading the file.
+                width, height, duration = info.get("width"), info.get("height"), info.get("duration")
+                if not (width and height and duration):
+                    probed_width, probed_height, probed_duration = await asyncio.to_thread(
+                        probe_dimensions, path
+                    )
+                    width, height, duration = width or probed_width, height or probed_height, duration or probed_duration
                 await message.reply_video(
                     video=fh,
                     supports_streaming=True,
-                    width=info.get("width"),
-                    height=info.get("height"),
-                    duration=int(info["duration"]) if info.get("duration") else None,
+                    width=width,
+                    height=height,
+                    duration=int(duration) if duration else None,
                 )
         await status.delete()
+        logger.info("Delivered %s (%s) for %s: %.1f MB", kind, url, message.from_user.id if message.from_user else "?", size / 1024 / 1024)
     except yt_dlp.utils.DownloadError as exc:
         logger.error("Download failed for %s: %s", url, exc)
         await status.edit_text(
@@ -303,12 +371,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await deliver(update.message, _strip_query(match.group(0)), kind="video")
         return
 
+    if match := INSTAGRAM_RE.search(text):
+        await deliver(update.message, _strip_query(match.group(0)), kind="video")
+        return
+
     if match := YOUTUBE_RE.search(text):
         await ask_youtube_quality(update.message, context, match.group(0))
         return
 
     await update.message.reply_text(
-        "That doesn't look like a YouTube or TikTok link.\n\n" + HELP_TEXT
+        "That doesn't look like a YouTube, TikTok, or Instagram link.\n\n" + HELP_TEXT
     )
 
 
