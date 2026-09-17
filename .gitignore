@@ -1,5 +1,6 @@
 # Secrets — never commit the bot token
 .env
+*cookies*.txt
 
 # Downloaded media (transient job dirs)
 downloads/
