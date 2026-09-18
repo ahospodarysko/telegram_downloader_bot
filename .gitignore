@@ -5,6 +5,9 @@
 # Downloaded media (transient job dirs)
 downloads/
 
+# Users database (local dev; Railway persists it on a mounted volume)
+data/
+
 # Python
 __pycache__/
 *.py[cod]
