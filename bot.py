@@ -27,8 +27,11 @@ from telegram.ext import (
     CommandHandler,
     ContextTypes,
     MessageHandler,
+    TypeHandler,
     filters,
 )
+
+import users_db
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -44,6 +47,7 @@ COMPRESSED_TARGET_SIZE = int(TELEGRAM_FILE_SIZE_LIMIT * 0.92)
 AUDIO_BITRATE_KBPS = 128
 MIN_VIDEO_BITRATE_KBPS = 150
 DOWNLOAD_DIR = Path(__file__).resolve().parent / "downloads"
+ADMIN_TELEGRAM_ID = os.environ.get("ADMIN_TELEGRAM_ID")
 
 # YouTube blocks datacenter IPs (e.g. Railway) with a "Sign in to confirm
 # you're not a bot" wall unless requests carry cookies from a real browser
@@ -88,15 +92,15 @@ HELP_TEXT = (
     "• TikTok / Instagram: downloaded automatically in the best quality\n\n"
     "Note: Telegram bots can only send files up to 50 MB — larger videos are "
     "automatically compressed to fit.\n"
-    "Note: some Instagram videos may download without audio — this is "
+    "Note: Some Instagram videos may download without audio — this is "
     "an Instagram-side limitation, not something we can fix.\n\n"
     "—\n\n"
     "Надішли мені посилання на YouTube, TikTok або Instagram, і я завантажу відео.\n\n"
     "• YouTube: обери 720p, 1080p або MP3 (тільки аудіо)\n"
     "• TikTok / Instagram: завантажується автоматично в найкращій якості\n\n"
-    "Примітка: боти Telegram можуть надсилати файли розміром до 50 МБ — "
+    "Примітка: Боти Telegram можуть надсилати файли розміром до 50 МБ — "
     "більші відео автоматично стискаються, щоб вкластися в ліміт.\n"
-    "Примітка: деякі відео з Instagram можуть завантажуватись без звуку — "
+    "Примітка: Деякі відео з Instagram можуть завантажуватись без звуку — "
     "це обмеження з боку Instagram, яке ми не можемо виправити."
 )
 
@@ -364,6 +368,23 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(HELP_TEXT)
 
 
+async def track_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Record/refresh this user in the users db. Runs for every update type."""
+    if user := update.effective_user:
+        await asyncio.to_thread(users_db.record_user, user.id, user.username, user.first_name)
+
+
+async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = update.effective_user
+    if not ADMIN_TELEGRAM_ID or not user or str(user.id) != ADMIN_TELEGRAM_ID:
+        return
+    total = await asyncio.to_thread(users_db.get_user_count)
+    active_7d = await asyncio.to_thread(users_db.get_active_count, 7)
+    await update.message.reply_text(
+        f"Total users: {total}\nActive in last 7 days: {active_7d}"
+    )
+
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text = update.message.text or ""
 
@@ -481,6 +502,7 @@ def main() -> None:
         )
 
     DOWNLOAD_DIR.mkdir(exist_ok=True)
+    users_db.init_db()
 
     application = (
         Application.builder()
@@ -491,7 +513,9 @@ def main() -> None:
         .build()
     )
 
+    application.add_handler(TypeHandler(Update, track_user), group=-1)
     application.add_handler(CommandHandler(["start", "help"], start))
+    application.add_handler(CommandHandler("stats", stats))
     application.add_handler(CallbackQueryHandler(handle_quality_choice, pattern=r"^dl:(\d+|mp3)$"))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_error_handler(on_error)

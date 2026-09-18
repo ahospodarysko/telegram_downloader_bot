@@ -47,6 +47,12 @@ python3 bot.py
   deleted after the file is sent.
 - YouTube downloads prefer H.264 (`avc1`) streams; AV1/VP9 renders as a black
   screen in Telegram's in-app player on most devices.
+- Every user who messages the bot is recorded (id, username, first seen, last
+  seen) in a sqlite db at `data/users.db` (override with `USERS_DB_PATH`).
+  Set `ADMIN_TELEGRAM_ID` to your Telegram user id to unlock `/stats`, which
+  reports the total user count and how many were active in the last 7 days.
+  On Railway, mount a persistent volume and point `USERS_DB_PATH` at it —
+  otherwise the user list resets on every redeploy.
 
 ## License
 
